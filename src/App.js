@@ -1,13 +1,56 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const App = () => {
-  const [todos, setTodos] = useState([]);
+  const [todos, setTodos] = useState(() => {
+    const saved = localStorage.getItem('todos');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [currentView, setCurrentView] = useState('month');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [currentDayDate, setCurrentDayDate] = useState(new Date());
-  const [scheduledTodos, setScheduledTodos] = useState({});
+  const [scheduledTodos, setScheduledTodos] = useState(() => {
+    const saved = localStorage.getItem('scheduledTodos');
+    return saved ? JSON.parse(saved) : {};
+  });
   const [todoInput, setTodoInput] = useState('');
   const [draggedTodo, setDraggedTodo] = useState(null);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [showInstallButton, setShowInstallButton] = useState(false);
+
+  // PWA 설치 프롬프트 감지
+  useEffect(() => {
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallButton(true);
+    });
+
+    // 이미 설치된 경우 감지
+    window.addEventListener('appinstalled', () => {
+      setShowInstallButton(false);
+    });
+  }, []);
+
+  // 앱 설치 함수
+  const installApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setShowInstallButton(false);
+      }
+      setDeferredPrompt(null);
+    }
+  };
+
+  // 데이터 변경 시 localStorage에 저장
+  useEffect(() => {
+    localStorage.setItem('todos', JSON.stringify(todos));
+  }, [todos]);
+
+  useEffect(() => {
+    localStorage.setItem('scheduledTodos', JSON.stringify(scheduledTodos));
+  }, [scheduledTodos]);
 
   // 스타일 정의
   const styles = {
@@ -32,7 +75,10 @@ const App = () => {
     },
     mainContent: {
       display: 'flex',
-      gap: '20px'
+      gap: '20px',
+      '@media (max-width: 768px)': {
+        flexDirection: 'column'
+      }
     },
     todoSection: {
       flex: '1',
@@ -516,6 +562,19 @@ const App = () => {
     <div style={styles.body}>
       <div style={styles.container}>
         <h1 style={styles.h1}>Todo List 일정 관리</h1>
+        
+        {showInstallButton && (
+          <button 
+            onClick={installApp} 
+            style={{
+              ...styles.addBtn,
+              marginBottom: '20px',
+              backgroundColor: '#2196F3'
+            }}
+          >
+            앱으로 설치하기
+          </button>
+        )}
         
         <div style={styles.mainContent}>
           <div style={styles.todoSection}>
